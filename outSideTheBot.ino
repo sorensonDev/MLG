@@ -41,51 +41,71 @@
 // The shield
 NXShield nxshield;
 SoftwareSerial lcd(2, 8);
-NXTUS       sonarB;
-NXTUS       sonarA;
+NXTUS       sonarFrontLeft;
+NXTUS       sonarFrontRight;
 NXTUS       infraSensor;
 int updateDelay = 50; // X ms sensor / screen update time
+int mainDelay = 40; // x ms sensor .. tweak value to allow arduino to think between function calls
+int intSpeed = 75; //set default speed for testing/tweaking
 
 
 
 void setup() {  
-  Serial.begin(115200); //Initialize Baud Rate for Arduino
-  delay(500);
-  initializeDisplay();
+  //Serial.begin(115200); //Initialize Baud Rate for Arduino
+//delay(500);
+  //initializeDisplay();
   nxshield.init(SH_HardwareI2C); //Initialize NXShield  
-  nxshield.waitForButtonPress(BTN_GO);  
+  nxshield.waitForButtonPress(BTN_GO);  //This call allows for the button "go" to be pressed in order to start the robot.
   
   nxshield.bank_a.motorReset();
-  nxshield.bank_b.motorReset();
+ // nxshield.bank_b.motorReset();
   
   //
   // Initialize the i2c sensors.
   //
-  sonarA.init( &nxshield, SH_BAS2 );
-  sonarB.init( &nxshield, SH_BBS2 );
+  sonarFrontRight.init( &nxshield, SH_BAS2 );
+  sonarFrontLeft.init( &nxshield, SH_BBS2 );
 //tsStop.init( &nxshield, SH_BAS2 );
 //  touchSensor.init(&nxshield, SH_BAS1);  
   //infraSensor.init(&nxshield, SH_BAS2);
 }
 
+
+/*
+-------------Main------------
+This function is the 'main' part of the code that loops
+forever. This will run functions that are defined below 
+and will continue running until the arduino is stopped in
+some way.
+*/
 void loop(){
   
   
   //getInfraData();
   //displayTest();
   //clearDisplay();
+  //fullLeft();
+  //delay(mainDelay );
+  //moveRight(100);
+  //delay(mainDelay);
+  //secureBall(intSpeed);
+//  delay(mainDelay);
+  ballLift();
+  delay(10);
+  //railLeft(100);
+  moveRight();
+  delay(10);
   findCenter(5);
-  //delay(500);
-  //testSlow();
-  
-  //int senData = infraSensor.getDist();
-  
-  //if(senData > 30){
-    //pullyDown(100);
-    //delay(500);
-  //}
-  //pullyUp(100);
-  //delay(500);
+
+ // ballLift();
+ // delay(mainDelay);
+ // dropLift(100);
+  //stopMoving();
+  //shootBall(intSpeed);
+  //dropLift(intSpeed);
+  //delay(mainDelay);
+  //moveRight(intSpeed);
+  //delay(mainDelay);
 }
 
 
@@ -93,32 +113,69 @@ void loop(){
 //***********************MOTOR CONTROL***********************\\
 
 void railLeft(int motorSpeed){
-  nxshield.bank_a.motorRunUnlimited(SH_Motor_1, SH_Direction_Forward, motorSpeed);  
+  nxshield.bank_a.motorRunUnlimited(SH_Motor_1, SH_Direction_Forward, motorSpeed); 
+  //nxshield.ledSetRGB(0,0,8); 
 }
 
 void railRight(int motorSpeed){
-  nxshield.bank_a.motorRunUnlimited(SH_Motor_1, SH_Direction_Reverse, motorSpeed);  
-}
-
-void pullyUp(int motorSpeed){
-  //nxshield.bank_a.motorRunUnlimited(SH_Motor_2, SH_Direction_Forward, motorSpeed); 
-  nxshield.bank_a.motorRunRotations(SH_Motor_2, SH_Direction_Forward, motorSpeed,
-                     6, 
-                     SH_Completion_Wait_For,
-                     SH_Next_Action_BrakeHold); 
+  nxshield.bank_a.motorRunUnlimited(SH_Motor_1, SH_Direction_Reverse, motorSpeed);
+  //nxshield.ledSetRGB(8,0,0);  
 }
 
 void pullyDown(int motorSpeed){
+  //nxshield.bank_a.motorRunUnlimited(SH_Motor_2, SH_Direction_Forward, motorSpeed); 
+  nxshield.bank_a.motorRunRotations(SH_Motor_2, SH_Direction_Forward, motorSpeed,
+                     4,
+                     SH_Completion_Wait_For ,
+                     SH_Next_Action_Float); 
+}
+
+void pullyUp(int motorSpeed){
   //nxshield.bank_a.motorRunUnlimited(SH_Motor_2, SH_Direction_Reverse, motorSpeed);
   nxshield.bank_a.motorRunRotations(SH_Motor_2, SH_Direction_Reverse, motorSpeed,
-                     6, 
-                     SH_Completion_Wait_For,
-                     SH_Next_Action_BrakeHold);   
+                     4,
+                     SH_Completion_Wait_For ,
+                     SH_Next_Action_Brake);   
 }
+
+void shootBall(int motorSpeed){
+  nxshield.bank_a.motorRunRotations(SH_Motor_2, SH_Direction_Reverse, motorSpeed,
+                     1,
+                     SH_Completion_Dont_Wait ,
+                     SH_Next_Action_Float);   
+}
+
+void secureBall(int motorSpeed){
+  //nxshield.bank_a.motorRunUnlimited(SH_Motor_2, SH_Direction_Reverse, motorSpeed);
+  nxshield.bank_a.motorRunRotations(SH_Motor_2, SH_Direction_Reverse, motorSpeed,
+                     1,
+                     SH_Completion_Wait_For ,
+                     SH_Next_Action_Float);   
+}
+
+void dropLift(int motorSpeed){
+  //nxshield.bank_a.motorRunUnlimited(SH_Motor_2, SH_Direction_Reverse, motorSpeed);
+  nxshield.bank_a.motorRunRotations(SH_Motor_2, SH_Direction_Forward, motorSpeed,
+                     1, 
+                     SH_Completion_Wait_For ,
+                     SH_Next_Action_Float);   
+}
+
 
 void stopMoving(){
   nxshield.bank_a.motorRunSeconds(SH_Motor_Both, SH_Direction_Reverse, 0, 0, SH_Completion_Dont_Wait, SH_Next_Action_Brake);
   //nxshield.bank_b.motorRunSeconds(SH_Motor_Both, SH_Direction_Reverse, 0, 0, SH_Completion_Dont_Wait, SH_Next_Action_Brake);
+}
+
+void moveRight(){
+  int sonarData = sonarFrontLeft.getDist();
+  while(sonarData < 105){
+    nxshield.bank_a.motorRunUnlimited(SH_Motor_1, SH_Direction_Reverse, 100); 
+    sonarData = sonarFrontLeft.getDist();
+  }
+  stopMoving();
+  secureBall(100);
+  
 }
 
 void testSlow(){
@@ -157,14 +214,14 @@ void getInfraData(){
   int  ab_us;
   int  bb_us;
 
-  ab_us = sonarA.getDist();
-  sprintf (str, "SonarA: Obstacle at: %d mm", ab_us );
+  ab_us = sonarFrontRight.getDist();
+  sprintf (str, "sonarR: Obstacle at: %d mm", ab_us );
   Serial.println(str);
   Serial.println( "-------------" );
   delay (500);
   
-  bb_us = sonarB.getDist();
-  sprintf (str, "SonarB: Obstacle at: %d mm", bb_us );
+  bb_us = sonarFrontLeft.getDist();
+  sprintf (str, "SonarL: Obstacle at: %d mm", bb_us );
   Serial.println(str);
   Serial.println( "-------------" );
   delay (500);
@@ -181,7 +238,8 @@ void clearDisplay() {
 void initializeDisplay(){
   lcd.begin(9600); 
   delay(500);
-  lcd.print("Setup Starting...");  
+  clearDisplay();
+  lcd.print("Setup Starting. ");  
 }
 
 void displayTest(){
@@ -191,40 +249,83 @@ void displayTest(){
   delay(500); 
 }
 
-//***********************LCD FUNCTIONS****************\\
-
+//***********************END LCD FUNCTIONS****************\\
+//--------------------------------------------------------\\
 void findCenter(int threshold){
-  Serial.println("Inside find center");
-  int distA = sonarA.getDist();
-  int distB = sonarB.getDist();
+  int distA = sonarFrontRight.getDist();
+  int distB = sonarFrontLeft.getDist();
 
   
   while( abs(distA - distB) > threshold) {
   delay(updateDelay);
-  distA = sonarA.getDist();
-  distB = sonarB.getDist();
-  clearDisplay();
+  distA = sonarFrontRight.getDist();
+  distB = sonarFrontLeft.getDist();
+  //clearDisplay();
     
 
-    lcd.print("Finding Center: ");
-    //setLCDCursor(16);
-    lcd.print("A: ");
-    lcd.print(distA);
-    lcd.print(" B: ");
-    lcd.print(distB);
+//    lcd.print("Finding Center: ");
+//    //setLCDCursor(16);
+//    lcd.print("R: ");
+//    lcd.print(distA);
+//    lcd.print(" L: ");
+//    lcd.print(distB);
 //
     if(distA > distB) {
-      railRight(100); 
+        railRight(100);
     } else {
-      railLeft(100);
-   }
+        railLeft(100);
+    }
   }
   stopMoving();
 }
 
+//void fullLeft(){
+//    int distA = sonarFrontRight.getDist();
+//    
+//    while( distA > 6) {
+//      //if(distA > 103) stopMoving();
+//          clearDisplay();
+//          lcd.print("Full Left       ");
+//          lcd.print("A: ");
+//          lcd.print(distA);
+//          
+//      delay(updateDelay);
+//      distA = sonarFrontRight.getDist();
+//      railLeft(100);
+//    }
+//    stopMoving();
+//
+//}
+
+void fullLeft(){
+    int distA = sonarFrontLeft.getDist();
+    
+    while( distA < 100) {
+//          clearDisplay();
+//          lcd.print("Full Left       ");
+//          lcd.print("A: ");
+//          lcd.print(distA);
+          
+      delay(updateDelay);
+      distA = sonarFrontLeft.getDist();
+      railRight(100);
+    }
+    //clearDisplay();
+    stopMoving();
+
+}
 
 //HELPER FUNCTIONS\\
-
+void ballLift(){
+  secureBall(100);
+  pullyUp(intSpeed);
+  delay(mainDelay);
+  shootBall(100);
+  delay(mainDelay);
+  pullyDown(intSpeed);
+  delay(mainDelay);
+  dropLift(100); 
+}
 
 
 //HELPER FUNCTIONS\\
