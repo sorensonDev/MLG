@@ -37,8 +37,25 @@
 #include <NXShield.h>
 #include <NXTUS.h>
 #include <SoftwareSerial.h>
+/*   
+~~~~~~TABLE OF CONTENTS~~~~~
+-INIT COMMANDS
+-MAIN LOOP
+-MOTOR COMMANDS
+-LCD COMMANDS
+-SANDBOX
+-PROCEDURES
 
-// The shield
+
+
+*/
+
+/////////////////////////////////////////////////////////////////////////
+///////////////////////////// INIT COMMANDS /////////////////////////////
+/////////////////////////////////////////////////////////////////////////
+
+
+// The shield: Global Variables & Setup
 NXShield nxshield;
 SoftwareSerial lcd(2, 8);
 NXTUS       sonarFrontLeft;
@@ -50,25 +67,25 @@ int intSpeed = 75; //set default speed for testing/tweaking
 int fisherPricePin = 9; //the pin we're using to control the fisher-price motor.
 
 
-
 void setup() {  
   //Serial.begin(115200); //Initialize Baud Rate for Arduino
-//delay(500);
+  //delay(500);
   nxshield.init(SH_HardwareI2C); //Initialize NXShield  
   
+  //Initialize the i2c motors.
   nxshield.bank_a.motorReset();
- // nxshield.bank_b.motorReset();
-  
-  //
-  // Initialize the i2c sensors.
-  //
+  nxshield.bank_b.motorReset();
+  //Initialize the i2c sensors.
   sonarFrontRight.init( &nxshield, SH_BBS2 );
   sonarFrontLeft.init( &nxshield, SH_BAS2 );
-//tsStop.init( &nxshield, SH_BAS2 );
-//  touchSensor.init(&nxshield, SH_BAS1);  
-  //infraSensor.init(&nxshield, SH_BAS2);
   //Initialize the fisher-price motor
   pinMode(fisherPricePin, OUTPUT);
+  
+                //tsStop.init( &nxshield, SH_BAS2 );
+                //touchSensor.init(&nxshield, SH_BAS1);  
+                //infraSensor.init(&nxshield, SH_BAS2);
+  
+
   
   initializeDisplay();
   // Check battery voltage on startup. Warn if low.
@@ -86,17 +103,17 @@ void setup() {
     lcd.print("voltage: ");
     lcd.print(batVolt); 
   }
-  
-    nxshield.waitForButtonPress(BTN_GO);  //This call allows for the button "go" to be pressed in order to start the robot.
+  nxshield.waitForButtonPress(BTN_GO);  //This call allows for the button "go" to be pressed in order to start the robot.
 }
 
 
 /*
--------------Main------------
-This function is the 'main' part of the code that loops
-forever. This will run functions that are defined below 
-and will continue running until the arduino is stopped in
-some way.
+/////////////////////////////////////////////////////////////////////////
+/////////////////////////////// MAIN LOOP ///////////////////////////////
+/////////////////////////////////////////////////////////////////////////
+This function is the 'main' part of the code that loops forever. This 
+will run functions that are defined below and will continue running 
+until the arduino is stopped in some way.
 */
 void loop(){
   
@@ -110,13 +127,14 @@ void loop(){
   //delay(mainDelay);
   //secureBall(intSpeed);
 //  delay(mainDelay);
-  ballLift();
-  delay(10);
+//  ballLift();
+  delay(2000);//2 seconds
   fisherOff();
+  delay(2000);//2 seconds
   //railLeft(100);
-  moveRight();
-  delay(10);
-  findCenter(5);
+  //moveRight();
+//delay(10);
+  //findCenter(5);
 
  // ballLift();
  // delay(mainDelay);
@@ -129,9 +147,17 @@ void loop(){
   //delay(mainDelay);
 }
 
+/////////////////////////////////////////////////////////////////////////
+///////////////////////////// MOTOR COMMANDS /////////////////////////////
+/////////////////////////////////////////////////////////////////////////
 
+//*****************************GENERAL****************************\\
+void stopMoving(){
+  nxshield.bank_a.motorRunSeconds(SH_Motor_Both, SH_Direction_Reverse, 0, 0, SH_Completion_Dont_Wait, SH_Next_Action_Brake);
+  //nxshield.bank_b.motorRunSeconds(SH_Motor_Both, SH_Direction_Reverse, 0, 0, SH_Completion_Dont_Wait, SH_Next_Action_Brake);
+}
 
-//***********************MOTOR CONTROL***********************\\
+//***********************RAIL MOTOR CONTROL***********************\\
 
 void railLeft(int motorSpeed){
   nxshield.bank_a.motorRunUnlimited(SH_Motor_1, SH_Direction_Forward, motorSpeed); 
@@ -143,6 +169,18 @@ void railRight(int motorSpeed){
   //nxshield.ledSetRGB(8,0,0);  
 }
 
+void moveRight(){
+  int sonarData = sonarFrontLeft.getDist();
+  while(sonarData < 100){
+    nxshield.bank_a.motorRunUnlimited(SH_Motor_1, SH_Direction_Reverse, 100); 
+    sonarData = sonarFrontLeft.getDist();
+  }
+  stopMoving();
+  secureBall(100);
+  
+}
+
+//***********************PULLY MOTOR CONTROL***********************\\
 void pullyDown(int motorSpeed){
   //nxshield.bank_a.motorRunUnlimited(SH_Motor_2, SH_Direction_Forward, motorSpeed); 
   nxshield.bank_a.motorRunRotations(SH_Motor_2, SH_Direction_Forward, motorSpeed,
@@ -183,23 +221,89 @@ void dropLift(int motorSpeed){
 }
 
 
-void stopMoving(){
-  nxshield.bank_a.motorRunSeconds(SH_Motor_Both, SH_Direction_Reverse, 0, 0, SH_Completion_Dont_Wait, SH_Next_Action_Brake);
-  //nxshield.bank_b.motorRunSeconds(SH_Motor_Both, SH_Direction_Reverse, 0, 0, SH_Completion_Dont_Wait, SH_Next_Action_Brake);
+
+
+
+
+//**********************RELAY MOTOR******************\\
+void fisherOn() {
+  digitalWrite(fisherPricePin, HIGH);
 }
 
-void moveRight(){
-  int sonarData = sonarFrontLeft.getDist();
-  while(sonarData < 100){
-    nxshield.bank_a.motorRunUnlimited(SH_Motor_1, SH_Direction_Reverse, 100); 
-    sonarData = sonarFrontLeft.getDist();
-  }
-  stopMoving();
-  secureBall(100);
+void fisherOff() {
+  digitalWrite(fisherPricePin, LOW);
+}
+
+
+
+
+/////////////////////////////////////////////////////////////////////////
+///////////////////////////// LCD COMMANDS //////////////////////////////
+/////////////////////////////////////////////////////////////////////////
+void clearDisplay() {
+  lcd.write(0xFE);
+  lcd.write(0x01); 
+}
+
+void setLCDCursor(byte cursor_position){
+ lcd.write(0xFE); // ready LCD for special command
+ lcd.write(0x80); // ready LCD to recieve cursor potition
+ lcd.write(cursor_position); // send cursor position 
+}
+
+void initializeDisplay(){
+  lcd.begin(9600); 
+  delay(500);
+  clearDisplay();
+  lcd.print("Setup Starting. ");  
+}
+
+void displayTest(){
+  clearDisplay();
+  delay(500);
+  lcd.print("Test");
+  delay(500); 
+}
+
+
+/////////////////////////////////////////////////////////////////////////
+//////////////////////////////// SANDBOX ////////////////////////////////
+/////////////////////////////////////////////////////////////////////////
+/* Playing with touch sensor
+void testTouch(){  
+   while(!touchSensor.isPressed()){
+     test(50);
+     }
+     stopMoving();
+     delay(250);
+  Serial.println("button is pressed");
+}
+*/
+
+
+/* Playing with infared
+void getInfraData(){
+  char aa[80];
+  char str[256];
+  int  ab_us;
+  int  bb_us;
+  */
+
+/* Using Serial to read sonar input
+  ab_us = sonarFrontRight.getDist();
+  sprintf (str, "sonarR: Obstacle at: %d mm", ab_us );
+  Serial.println(str);
+  Serial.println( "-------------" );
+  delay (500);
   
-}
-
-void testSlow(){
+  bb_us = sonarFrontLeft.getDist();
+  sprintf (str, "SonarL: Obstacle at: %d mm", bb_us );
+  Serial.println(str);
+  Serial.println( "-------------" );
+  delay (500);
+  */
+  
+  void testSlow(){
      // Drive motor 1 forward and backward for a specific number of
     // rotations
     char            str[40];
@@ -218,46 +322,7 @@ void testSlow(){
   
 }
 
-//***********************MOTOR CONTROL***********************\\
 
-//void testTouch(){  
-//   while(!touchSensor.isPressed()){
-//     test(50);
-//     }
-//     stopMoving();
-//     delay(250);
-//  Serial.println("button is pressed");
-//}
-
-void getInfraData(){
-  char aa[80];
-  char str[256];
-  int  ab_us;
-  int  bb_us;
-
-  ab_us = sonarFrontRight.getDist();
-  sprintf (str, "sonarR: Obstacle at: %d mm", ab_us );
-  Serial.println(str);
-  Serial.println( "-------------" );
-  delay (500);
-  
-  bb_us = sonarFrontLeft.getDist();
-  sprintf (str, "SonarL: Obstacle at: %d mm", bb_us );
-  Serial.println(str);
-  Serial.println( "-------------" );
-  delay (500);
-
-}
-//**********************RELAY MOTOR******************\\
-void fisherOn() {
-  digitalWrite(fisherPricePin, HIGH);
-}
-
-void fisherOff() {
-  digitalWrite(fisherPricePin, LOW);
-}
-
-//--------------------------------------------------------\\
 void findCenter(int threshold){
   int distA = sonarFrontRight.getDist();
   int distB = sonarFrontLeft.getDist();
@@ -334,34 +399,7 @@ void ballLift(){
   dropLift(100); 
 }
 
-
-//HELPER FUNCTIONS\\
-
-
-///////////////////////////// LCD COMMANDS //////////////////////////////
-void clearDisplay() {
-  lcd.write(0xFE);
-  lcd.write(0x01); 
-}
-
-void setLCDCursor(byte cursor_position){
- lcd.write(0xFE); // ready LCD for special command
- lcd.write(0x80); // ready LCD to recieve cursor potition
- lcd.write(cursor_position); // send cursor position 
-}
-
-void initializeDisplay(){
-  lcd.begin(9600); 
-  delay(500);
-  clearDisplay();
-  lcd.print("Setup Starting. ");  
-}
-
-void displayTest(){
-  clearDisplay();
-  delay(500);
-  lcd.print("Test");
-  delay(500); 
-}
-///////////////////////////// END LCD COMMANDS //////////////////////////////
+/////////////////////////////////////////////////////////////////////////
+///////////////////////////// PROCEDURES ////////////////////////////////
+/////////////////////////////////////////////////////////////////////////
 
