@@ -47,15 +47,14 @@ NXTUS       infraSensor;
 int updateDelay = 50; // X ms sensor / screen update time
 int mainDelay = 40; // x ms sensor .. tweak value to allow arduino to think between function calls
 int intSpeed = 75; //set default speed for testing/tweaking
+int fisherPricePin = 9; //the pin we're using to control the fisher-price motor.
 
 
 
 void setup() {  
   //Serial.begin(115200); //Initialize Baud Rate for Arduino
 //delay(500);
-  //initializeDisplay();
   nxshield.init(SH_HardwareI2C); //Initialize NXShield  
-  nxshield.waitForButtonPress(BTN_GO);  //This call allows for the button "go" to be pressed in order to start the robot.
   
   nxshield.bank_a.motorReset();
  // nxshield.bank_b.motorReset();
@@ -63,11 +62,32 @@ void setup() {
   //
   // Initialize the i2c sensors.
   //
-  sonarFrontRight.init( &nxshield, SH_BAS2 );
-  sonarFrontLeft.init( &nxshield, SH_BBS2 );
+  sonarFrontRight.init( &nxshield, SH_BBS2 );
+  sonarFrontLeft.init( &nxshield, SH_BAS2 );
 //tsStop.init( &nxshield, SH_BAS2 );
 //  touchSensor.init(&nxshield, SH_BAS1);  
   //infraSensor.init(&nxshield, SH_BAS2);
+  //Initialize the fisher-price motor
+  pinMode(fisherPricePin, OUTPUT);
+  
+  initializeDisplay();
+  // Check battery voltage on startup. Warn if low.
+  float batVolt = (float) nxshield.bank_a.nxshieldGetBatteryVoltage() / 1000;
+  if(batVolt < 7.50) {
+    clearDisplay();
+    lcd.print("LOW VOLTAGE!!!");
+    setLCDCursor(16);
+    lcd.print("voltage: ");
+    lcd.print(batVolt);
+  } else {
+    clearDisplay();
+    lcd.print("Press GO!");
+    setLCDCursor(16);
+    lcd.print("voltage: ");
+    lcd.print(batVolt); 
+  }
+  
+    nxshield.waitForButtonPress(BTN_GO);  //This call allows for the button "go" to be pressed in order to start the robot.
 }
 
 
@@ -80,7 +100,7 @@ some way.
 */
 void loop(){
   
-  
+  fisherOn();
   //getInfraData();
   //displayTest();
   //clearDisplay();
@@ -92,6 +112,7 @@ void loop(){
 //  delay(mainDelay);
   ballLift();
   delay(10);
+  fisherOff();
   //railLeft(100);
   moveRight();
   delay(10);
@@ -169,7 +190,7 @@ void stopMoving(){
 
 void moveRight(){
   int sonarData = sonarFrontLeft.getDist();
-  while(sonarData < 105){
+  while(sonarData < 100){
     nxshield.bank_a.motorRunUnlimited(SH_Motor_1, SH_Direction_Reverse, 100); 
     sonarData = sonarFrontLeft.getDist();
   }
@@ -227,29 +248,15 @@ void getInfraData(){
   delay (500);
 
 }
-
-//***********************LCD FUNCTIONS****************\\
-
-void clearDisplay() {
-  lcd.write(0xFE);
-  lcd.write(0x01); 
+//**********************RELAY MOTOR******************\\
+void fisherOn() {
+  digitalWrite(fisherPricePin, HIGH);
 }
 
-void initializeDisplay(){
-  lcd.begin(9600); 
-  delay(500);
-  clearDisplay();
-  lcd.print("Setup Starting. ");  
+void fisherOff() {
+  digitalWrite(fisherPricePin, LOW);
 }
 
-void displayTest(){
-  clearDisplay();
-  delay(500);
-  lcd.print("Test");
-  delay(500); 
-}
-
-//***********************END LCD FUNCTIONS****************\\
 //--------------------------------------------------------\\
 void findCenter(int threshold){
   int distA = sonarFrontRight.getDist();
@@ -331,4 +338,30 @@ void ballLift(){
 //HELPER FUNCTIONS\\
 
 
+///////////////////////////// LCD COMMANDS //////////////////////////////
+void clearDisplay() {
+  lcd.write(0xFE);
+  lcd.write(0x01); 
+}
+
+void setLCDCursor(byte cursor_position){
+ lcd.write(0xFE); // ready LCD for special command
+ lcd.write(0x80); // ready LCD to recieve cursor potition
+ lcd.write(cursor_position); // send cursor position 
+}
+
+void initializeDisplay(){
+  lcd.begin(9600); 
+  delay(500);
+  clearDisplay();
+  lcd.print("Setup Starting. ");  
+}
+
+void displayTest(){
+  clearDisplay();
+  delay(500);
+  lcd.print("Test");
+  delay(500); 
+}
+///////////////////////////// END LCD COMMANDS //////////////////////////////
 
