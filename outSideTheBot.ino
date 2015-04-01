@@ -117,6 +117,8 @@ will run functions that are defined below and will continue running
 until the arduino is stopped in some way.
 */
 void loop(){
+    //printDists();//Just displays distance to walls on display
+  
   
   //fisherOn();
   //getInfraData();
@@ -136,9 +138,10 @@ void loop(){
   //moveRight();
 //delay(10);
   //findCenter(5);
-  if(!railHalted){
-    fullLeft();
-  }
+  if(!railHalted){fullLeft();}//Stop calling when halted.
+  /////if(!railHalted){findCenter(5);}//Stop calling when halted.
+
+  
 
  // ballLift();
  // delay(mainDelay);
@@ -269,6 +272,23 @@ void displayTest(){
   delay(500); 
 }
 
+void printDists(){
+  int refreshDisplay = 0;
+  int distA = sonarFrontRight.getDist();
+  int distB = sonarFrontLeft.getDist();
+  
+  if(refreshDisplay = updateDelay){
+    clearDisplay();
+    lcd.print("Location: ");
+    setLCDCursor(16);
+    lcd.print("R: ");
+    lcd.print(distA);
+    lcd.print(" L: ");
+    lcd.print(distB);
+    refreshDisplay = 0; 
+  }
+}
+
 
 /////////////////////////////////////////////////////////////////////////
 //////////////////////////////// SANDBOX ////////////////////////////////
@@ -328,35 +348,44 @@ void getInfraData(){
 
 
 void findCenter(int threshold){
-  int refreshAt10 = 0;
   int distA = sonarFrontRight.getDist();
   int distB = sonarFrontLeft.getDist();
-
-  
-  while( abs(distA - distB) > threshold) {
   delay(updateDelay);
-  distA = sonarFrontRight.getDist();
-  distB = sonarFrontLeft.getDist();
-
-    
-    if(refreshAt10 = 10){
-    clearDisplay();
-    lcd.print("Finding Center: ");
-    //setLCDCursor(16);
-    lcd.print("R: ");
-    lcd.print(distA);
-    lcd.print(" L: ");
-    lcd.print(distB);
-     refreshAt10 = 0; 
-    }
-
-    if(distA > distB) {
-        railRight(50);
-    } else {
-        railLeft(50);
-    }
+  
+  if(distA < distB) {
+      railRight(100);
+  } else {
+      railLeft(100);
   }
-  stopMoving();
+  
+  printDists();
+  
+  if( abs(distA - distB) < threshold*4) {
+    realCenter(threshold);
+
+  }
+
+}
+
+void realCenter(int threshold){
+  int refreshDisplay = 0;
+  int distA = sonarFrontRight.getDist();
+  int distB = sonarFrontLeft.getDist();
+  delay(updateDelay);
+  
+  if(distA < distB) {
+      railRight(50);
+  } else {
+      railLeft(50);
+  }
+  
+printDists();
+    
+    if( abs(distA - distB) < threshold*4) {
+        stopMoving();
+        railHalted = true;
+    }
+
 }
 
 //void fullLeft(){
@@ -377,17 +406,20 @@ void findCenter(int threshold){
 //
 //}
 
+
+// Call like this to actually stop it=>  if(!railHalted){fullLeft();}//Stop calling when halted.
 void fullLeft(){
-    int refreshAt30 = 0;
+    int refreshDisplay = 0;
     int distToWall = sonarFrontLeft.getDist();
     delay(updateDelay);      
-        if(refreshAt30 = 30){
-            clearDisplay();
-            lcd.print("Full Left       ");
-          //setLCDCursor(16);
-            lcd.print(distToWall);
-           refreshAt30 = 0; 
-        }
+//        if(refreshDisplay = 30){
+//            clearDisplay();
+//            lcd.print("Full Left       ");
+//          //setLCDCursor(16);
+//            lcd.print(distToWall);
+//           refreshDisplay = 0; 
+//        }
+printDists();
   
     if( distToWall < 7) {
       stopMoving();
