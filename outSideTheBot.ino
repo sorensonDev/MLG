@@ -3,9 +3,9 @@
 #include <AngleSensor.h>
 #include <BaseI2CDevice.h>
 #include <DISTNx.h>
-#include <EV3Color.h>
-#include <EV3Gyro.h>
-#include <EV3InfraRed.h>
+//#include <EV3Color.h>
+//#include <EV3Gyro.h>
+//#include <EV3InfraRed.h>
 #include <EV3SensorAdapter.h>
 #include <EV3Sonar.h>
 #include <LineLeader.h>
@@ -65,6 +65,7 @@ int updateDelay = 50; // X ms sensor / screen update time
 int mainDelay = 40; // x ms sensor .. tweak value to allow arduino to think between function calls
 int intSpeed = 75; //set default speed for testing/tweaking
 int fisherPricePin = 9; //the pin we're using to control the fisher-price motor.
+bool railHalted = false;
 
 
 void setup() {  
@@ -117,7 +118,7 @@ until the arduino is stopped in some way.
 */
 void loop(){
   
-  fisherOn();
+  //fisherOn();
   //getInfraData();
   //displayTest();
   //clearDisplay();
@@ -128,13 +129,16 @@ void loop(){
   //secureBall(intSpeed);
 //  delay(mainDelay);
 //  ballLift();
-  delay(2000);//2 seconds
-  fisherOff();
-  delay(2000);//2 seconds
+//  delay(2000);//2 seconds
+//  fisherOff();
+//  delay(2000);//2 seconds
   //railLeft(100);
   //moveRight();
 //delay(10);
   //findCenter(5);
+  if(!railHalted){
+    fullLeft();
+  }
 
  // ballLift();
  // delay(mainDelay);
@@ -160,12 +164,12 @@ void stopMoving(){
 //***********************RAIL MOTOR CONTROL***********************\\
 
 void railLeft(int motorSpeed){
-  nxshield.bank_a.motorRunUnlimited(SH_Motor_1, SH_Direction_Forward, motorSpeed); 
+  nxshield.bank_a.motorRunUnlimited(SH_Motor_1, SH_Direction_Reverse, motorSpeed); 
   //nxshield.ledSetRGB(0,0,8); 
 }
 
 void railRight(int motorSpeed){
-  nxshield.bank_a.motorRunUnlimited(SH_Motor_1, SH_Direction_Reverse, motorSpeed);
+  nxshield.bank_a.motorRunUnlimited(SH_Motor_1, SH_Direction_Forward, motorSpeed);
   //nxshield.ledSetRGB(8,0,0);  
 }
 
@@ -324,6 +328,7 @@ void getInfraData(){
 
 
 void findCenter(int threshold){
+  int refreshAt10 = 0;
   int distA = sonarFrontRight.getDist();
   int distB = sonarFrontLeft.getDist();
 
@@ -332,20 +337,23 @@ void findCenter(int threshold){
   delay(updateDelay);
   distA = sonarFrontRight.getDist();
   distB = sonarFrontLeft.getDist();
-  //clearDisplay();
-    
 
-//    lcd.print("Finding Center: ");
-//    //setLCDCursor(16);
-//    lcd.print("R: ");
-//    lcd.print(distA);
-//    lcd.print(" L: ");
-//    lcd.print(distB);
-//
+    
+    if(refreshAt10 = 10){
+    clearDisplay();
+    lcd.print("Finding Center: ");
+    //setLCDCursor(16);
+    lcd.print("R: ");
+    lcd.print(distA);
+    lcd.print(" L: ");
+    lcd.print(distB);
+     refreshAt10 = 0; 
+    }
+
     if(distA > distB) {
-        railRight(100);
+        railRight(50);
     } else {
-        railLeft(100);
+        railLeft(50);
     }
   }
   stopMoving();
@@ -370,21 +378,23 @@ void findCenter(int threshold){
 //}
 
 void fullLeft(){
-    int distA = sonarFrontLeft.getDist();
-    
-    while( distA < 100) {
-//          clearDisplay();
-//          lcd.print("Full Left       ");
-//          lcd.print("A: ");
-//          lcd.print(distA);
-          
-      delay(updateDelay);
-      distA = sonarFrontLeft.getDist();
-      railRight(100);
+    int refreshAt30 = 0;
+    int distToWall = sonarFrontLeft.getDist();
+    delay(updateDelay);      
+        if(refreshAt30 = 30){
+            clearDisplay();
+            lcd.print("Full Left       ");
+          //setLCDCursor(16);
+            lcd.print(distToWall);
+           refreshAt30 = 0; 
+        }
+  
+    if( distToWall < 7) {
+      stopMoving();
+      railHalted = true;
+    }else{    
+      railRight(100);      
     }
-    //clearDisplay();
-    stopMoving();
-
 }
 
 //HELPER FUNCTIONS\\
