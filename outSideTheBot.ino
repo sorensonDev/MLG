@@ -43,9 +43,7 @@
 -MAIN LOOP
 -MOTOR COMMANDS
 -LCD COMMANDS
--SANDBOX
--PROCEDURES
-
+-PROCEDURE SANDBOX
 
 
 */
@@ -115,41 +113,41 @@ void setup() {
 This function is the 'main' part of the code that loops forever. This 
 will run functions that are defined below and will continue running 
 until the arduino is stopped in some way.
+====>RUN TOP LEVEL PROCEDURE HERE<====
 */
 void loop(){
-    //printLocation();//Just displays distance to walls on display
-  
-  
+ //These work:
+ //printLocation();//Just displays distance to walls on display
+ findCenter(2);//Runs fast loop, then slow loop to refit to threshold (the argument)
+ //fullLeft();//Full speed to left wall, stop motor when hit.  
   //fisherOn();
-  //getInfraData();
-  //displayTest();
-  //clearDisplay();
-  //fullLeft();
-  //delay(mainDelay );
-  //moveRight(100);
-  //delay(mainDelay);
-  //secureBall(intSpeed);
-//  delay(mainDelay);
-//  ballLift();
-//  delay(2000);//2 seconds
-//  fisherOff();
-//  delay(2000);//2 seconds
-  //railLeft(100);
-  //moveRight();
-//delay(10);
-//findCenter(5);
-fullLeft();
+  //delay(2000);//2 seconds
+  //fisherOff();
+  //delay(2000);//2 seconds 
   
 
- // ballLift();
- // delay(mainDelay);
- // dropLift(100);
-  //stopMoving();
-  //shootBall(intSpeed);
-  //dropLift(intSpeed);
+
+//Stuff to work on:
+  //secureBall(intSpeed);
+  //delay(mainDelay);
+  //ballLift();
+
+ //ballLift();
+ //delay(mainDelay);
+ //dropLift(100);
+ //stopMoving();
+ //shootBall(intSpeed);
+ //dropLift(intSpeed);
+
+
+
+  
+  //Junk?:
   //delay(mainDelay);
   //moveRight(intSpeed);
   //delay(mainDelay);
+  //displayTest();
+  //getInfraData();
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -169,6 +167,11 @@ void railLeft(int motorSpeed){
   //nxshield.ledSetRGB(0,0,8); 
 }
 
+void railRight(int motorSpeed){
+  nxshield.bank_a.motorRunUnlimited(SH_Motor_1, SH_Direction_Forward, motorSpeed);
+  //nxshield.ledSetRGB(8,0,0);  
+}
+
 void fullLeft(){
     int distToWall = sonarFrontLeft.getDist();
 
@@ -182,9 +185,36 @@ void fullLeft(){
       stopMoving();
 }
 
-void railRight(int motorSpeed){
-  nxshield.bank_a.motorRunUnlimited(SH_Motor_1, SH_Direction_Forward, motorSpeed);
-  //nxshield.ledSetRGB(8,0,0);  
+
+void findCenter(int threshold) {
+  int distLeft = sonarFrontLeft.getDist();
+  int distRight = sonarFrontRight.getDist();
+  
+ while(abs(distLeft - distRight) > 35){//First loop: get CLOSISH (trying 30) to middle
+    delay(updateDelay);
+    distLeft = sonarFrontLeft.getDist();
+    distRight = sonarFrontRight.getDist();
+    printHelper("Finding Center:", distLeft, distRight);
+    if(distLeft > distRight) {
+      railRight(100); 
+    } else {
+      railLeft(100);
+    }
+  }
+  while(abs(distLeft - distRight) > threshold) {//Second loop: refine at slow speed
+    delay(updateDelay);
+    distLeft = sonarFrontLeft.getDist();
+    distRight = sonarFrontRight.getDist();
+    printHelper("Refining Center:", distLeft, distRight);
+    if(distLeft > distRight) {
+      railRight(10); 
+    } else {
+      railLeft(10);
+    }
+  }
+  
+  printLocation();
+  stopMoving();
 }
 
 
@@ -307,7 +337,7 @@ void printHelper(const char* title, int left, int right){
 
 
 /////////////////////////////////////////////////////////////////////////
-//////////////////////////////// SANDBOX ////////////////////////////////
+////////////////////////// PROCEDURE SANDBOX ////////////////////////////
 /////////////////////////////////////////////////////////////////////////
 /* Playing with touch sensor
 void testTouch(){  
@@ -374,41 +404,7 @@ void getInfraData(){
 }
 
 
-void findCenter(int threshold) {
-  int distLeft = sonarFrontLeft.getDist();
-  int distRight = sonarFrontRight.getDist();
-  
-  while(abs(distLeft - distRight) > threshold) {
-    delay(updateDelay);
-    distLeft = sonarFrontLeft.getDist();
-    distRight = sonarFrontRight.getDist();
-    printHelper("Finding Center:", distLeft, distRight);
-    if(distLeft > distRight) {
-      railRight(50); 
-    } else {
-      railLeft(50);
-    }
-  }
-  printLocation();
-  stopMoving();
-}
-//void fullLeft(){
-//    int distA = sonarFrontRight.getDist();
-//    
-//    while( distA > 6) {
-//      //if(distA > 103) stopMoving();
-//          clearDisplay();
-//          lcd.print("Full Left       ");
-//          lcd.print("A: ");
-//          lcd.print(distA);
-//          
-//      delay(updateDelay);
-//      distA = sonarFrontRight.getDist();
-//      railLeft(100);
-//    }
-//    stopMoving();
-//
-//}
+
 
 
 
@@ -426,8 +422,5 @@ void ballLift(){
   dropLift(100); 
 }
 
-/////////////////////////////////////////////////////////////////////////
-///////////////////////////// PROCEDURES ////////////////////////////////
-/////////////////////////////////////////////////////////////////////////
 
 
