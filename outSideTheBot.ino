@@ -65,7 +65,7 @@ int updateDelay = 50; // X ms sensor / screen update time
 int mainDelay = 40; // x ms sensor .. tweak value to allow arduino to think between function calls
 int intSpeed = 75; //set default speed for testing/tweaking
 int fisherPricePin = 9; //the pin we're using to control the fisher-price motor.
-bool railHalted = false;
+
 
 
 void setup() {  
@@ -117,7 +117,7 @@ will run functions that are defined below and will continue running
 until the arduino is stopped in some way.
 */
 void loop(){
-    //printDists();//Just displays distance to walls on display
+    //printLocation();//Just displays distance to walls on display
   
   
   //fisherOn();
@@ -137,10 +137,8 @@ void loop(){
   //railLeft(100);
   //moveRight();
 //delay(10);
-  //findCenter(5);
-  if(!railHalted){fullLeft();}//Stop calling when halted.
-  /////if(!railHalted){findCenter(5);}//Stop calling when halted.
-
+//findCenter(5);
+fullLeft();
   
 
  // ballLift();
@@ -171,21 +169,25 @@ void railLeft(int motorSpeed){
   //nxshield.ledSetRGB(0,0,8); 
 }
 
+void fullLeft(){
+    int distToWall = sonarFrontLeft.getDist();
+
+    while( distToWall > 7) {
+      delay(updateDelay);
+      printHelper("fullLeft:", distToWall, sonarFrontRight.getDist());  
+      railRight(100);
+      distToWall = sonarFrontLeft.getDist();
+    }    
+      printLocation();
+      stopMoving();
+}
+
 void railRight(int motorSpeed){
   nxshield.bank_a.motorRunUnlimited(SH_Motor_1, SH_Direction_Forward, motorSpeed);
   //nxshield.ledSetRGB(8,0,0);  
 }
 
-void moveRight(){
-  int sonarData = sonarFrontLeft.getDist();
-  while(sonarData < 100){
-    nxshield.bank_a.motorRunUnlimited(SH_Motor_1, SH_Direction_Reverse, 100); 
-    sonarData = sonarFrontLeft.getDist();
-  }
-  stopMoving();
-  secureBall(100);
-  
-}
+
 
 //***********************PULLY MOTOR CONTROL***********************\\
 void pullyDown(int motorSpeed){
@@ -272,19 +274,33 @@ void displayTest(){
   delay(500); 
 }
 
-void printDists(){
+void printLocation(){
   int refreshDisplay = 0;
-  int distA = sonarFrontRight.getDist();
-  int distB = sonarFrontLeft.getDist();
+  int distLeft = sonarFrontRight.getDist();
+  int distRight = sonarFrontLeft.getDist();
   
   if(refreshDisplay = updateDelay){
     clearDisplay();
     lcd.print("Location: ");
     setLCDCursor(16);
     lcd.print("R: ");
-    lcd.print(distA);
+    lcd.print(distLeft);
     lcd.print(" L: ");
-    lcd.print(distB);
+    lcd.print(distRight);
+    refreshDisplay = 0; 
+  }
+}
+
+void printHelper(const char* title, int left, int right){
+ int refreshDisplay = 0;
+ if(refreshDisplay = updateDelay){
+    clearDisplay();
+    lcd.print(title);
+    setLCDCursor(16);
+    lcd.print("L: ");
+    lcd.print(left);
+    lcd.print(" R: ");
+    lcd.print(right);
     refreshDisplay = 0; 
   }
 }
@@ -327,6 +343,17 @@ void getInfraData(){
   delay (500);
   */
   
+//This funtion mixes motion with ball logic. This would be better made into separate methods: moveRight() then secureBall()  
+//  void moveRight(){
+//  int sonarData = sonarFrontLeft.getDist();
+//  while(sonarData < 100){
+//    nxshield.bank_a.motorRunUnlimited(SH_Motor_1, SH_Direction_Reverse, 100); 
+//    sonarData = sonarFrontLeft.getDist();
+//  }
+//  stopMoving();
+//  secureBall(100);
+//  
+//}
   void testSlow(){
      // Drive motor 1 forward and backward for a specific number of
     // rotations
@@ -347,47 +374,24 @@ void getInfraData(){
 }
 
 
-void findCenter(int threshold){
-  int distA = sonarFrontRight.getDist();
-  int distB = sonarFrontLeft.getDist();
-  delay(updateDelay);
+void findCenter(int threshold) {
+  int distLeft = sonarFrontLeft.getDist();
+  int distRight = sonarFrontRight.getDist();
   
-  if(distA < distB) {
-      railRight(100);
-  } else {
-      railLeft(100);
-  }
-  
-  printDists();
-  
-  if( abs(distA - distB) < threshold*4) {
-    realCenter(threshold);
-
-  }
-
-}
-
-void realCenter(int threshold){
-  int refreshDisplay = 0;
-  int distA = sonarFrontRight.getDist();
-  int distB = sonarFrontLeft.getDist();
-  delay(updateDelay);
-  
-  if(distA < distB) {
-      railRight(50);
-  } else {
+  while(abs(distLeft - distRight) > threshold) {
+    delay(updateDelay);
+    distLeft = sonarFrontLeft.getDist();
+    distRight = sonarFrontRight.getDist();
+    printHelper("Finding Center:", distLeft, distRight);
+    if(distLeft > distRight) {
+      railRight(50); 
+    } else {
       railLeft(50);
-  }
-  
-printDists();
-    
-    if( abs(distA - distB) < threshold*4) {
-        stopMoving();
-        railHalted = true;
     }
-
+  }
+  printLocation();
+  stopMoving();
 }
-
 //void fullLeft(){
 //    int distA = sonarFrontRight.getDist();
 //    
@@ -407,27 +411,8 @@ printDists();
 //}
 
 
-// Call like this to actually stop it=>  if(!railHalted){fullLeft();}//Stop calling when halted.
-void fullLeft(){
-    int refreshDisplay = 0;
-    int distToWall = sonarFrontLeft.getDist();
-    delay(updateDelay);      
-//        if(refreshDisplay = 30){
-//            clearDisplay();
-//            lcd.print("Full Left       ");
-//          //setLCDCursor(16);
-//            lcd.print(distToWall);
-//           refreshDisplay = 0; 
-//        }
-printDists();
-  
-    if( distToWall < 7) {
-      stopMoving();
-      railHalted = true;
-    }else{    
-      railRight(100);      
-    }
-}
+
+
 
 //HELPER FUNCTIONS\\
 void ballLift(){
@@ -444,4 +429,5 @@ void ballLift(){
 /////////////////////////////////////////////////////////////////////////
 ///////////////////////////// PROCEDURES ////////////////////////////////
 /////////////////////////////////////////////////////////////////////////
+
 
