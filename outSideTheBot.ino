@@ -55,7 +55,7 @@
 
 // The shield: Global Variables & Setup
 NXShield nxshield;
-SoftwareSerial lcd(2, 8);
+SoftwareSerial lcd(2, 10);
 NXTUS       sonarFrontLeft;
 NXTUS       sonarFrontRight;
 NXTUS       infraSensor;
@@ -118,7 +118,7 @@ until the arduino is stopped in some way.
 void loop(){
  //These work:
  //printLocation();//Just displays distance to walls on display
- findCenter(2);//Runs fast loop, then slow loop to refit to threshold (the argument)
+ findCenter(2);//Runs fast loop, then slow loop to refit to threshold (the argument). May need to adjust to track exact center due to sensor offset
  //fullLeft();//Full speed to left wall, stop motor when hit.  
   //fisherOn();
   //delay(2000);//2 seconds

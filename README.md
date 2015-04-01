@@ -8,6 +8,6 @@ Videos from the competition can be found in [this](https://www.youtube.com/playl
 LCD Pins:
 Red - 5V
 Black - Ground
-Yellow - 8
+Yellow - 10
 
 Relay Uses Pin 9
