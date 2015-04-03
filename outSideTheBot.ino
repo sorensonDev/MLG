@@ -8,15 +8,11 @@
 //#include <EV3InfraRed.h>
 #include <EV3SensorAdapter.h>
 #include <EV3Sonar.h>
-#include <LineLeader.h>
-#include <MagicWand.h>
-#include <MsTimer2.h>
-#include <NumericPad.h>
+//#include <LineLeader.h>
 #include <NXShield.h>
 #include <NXShieldAGS.h>
 #include <NXShieldI2C.h>
 #include <NXTCam.h>
-#include <NXTCurrentMeter.h>
 #include <NXTHID.h>
 #include <NXTLight.h>
 #include <NXTMMX.h>
@@ -24,20 +20,32 @@
 #include <NXTServo.h>
 #include <NXTTouch.h>
 #include <NXTUS.h>
-#include <NXTVoltMeter.h>
 #include <PFMate.h>
-#include <PiLight.h>
 #include <PSPNx.h>
-#include <RCXLight.h>
 #include <RTC.h>
-#include <SHDefines.h>
 #include <SoftI2cMaster.h>
 #include <SumoEyes.h>
 #include <Wire.h>
 #include <NXShield.h>
 #include <NXTUS.h>
 #include <SoftwareSerial.h>
-/*   
+
+//**************Refactoring LOG JDS ************\\
+/*
+3:13PM changed a few delay values, made a function called fullRight()
+3:19PM it seems that the orientation of our motor is hooked up backwards
+physically, RailLeft actually goes right and likewise with RailRight. I have
+not updated the code yet to give correct behavior
+3:31PM Josh changed functionality of pullyUp and pullyDown, modfified to reflect
+better behavior during field testing. Changed number of rotations.
+4:25PM Josh tweaked number of rotations in pullyUp pully down. I believe that 3 rotations
+instead of 6 is sufficient considering that we replaced a smaller gear with the bigger wyrmgear.
+*/
+
+
+
+
+/*
 ~~~~~~TABLE OF CONTENTS~~~~~
 -INIT COMMANDS
 -MAIN LOOP
@@ -61,16 +69,13 @@ NXTUS       sonarFrontRight;
 NXTUS       infraSensor;
 int updateDelay = 50; // X ms sensor / screen update time
 int mainDelay = 40; // x ms sensor .. tweak value to allow arduino to think between function calls
-int intSpeed = 75; //set default speed for testing/tweaking
 int fisherPricePin = 9; //the pin we're using to control the fisher-price motor.
+int fisherSpinup = 500; //amount of ms for fischer to spin up
 
 
+void setup() {
+  nxshield.init(SH_HardwareI2C); //Initialize NXShield
 
-void setup() {  
-  //Serial.begin(115200); //Initialize Baud Rate for Arduino
-  //delay(500);
-  nxshield.init(SH_HardwareI2C); //Initialize NXShield  
-  
   //Initialize the i2c motors.
   nxshield.bank_a.motorReset();
   nxshield.bank_b.motorReset();
@@ -80,28 +85,9 @@ void setup() {
   //Initialize the fisher-price motor
   pinMode(fisherPricePin, OUTPUT);
   
-                //tsStop.init( &nxshield, SH_BAS2 );
-                //touchSensor.init(&nxshield, SH_BAS1);  
-                //infraSensor.init(&nxshield, SH_BAS2);
-  
-
-  
   initializeDisplay();
   // Check battery voltage on startup. Warn if low.
-  float batVolt = (float) nxshield.bank_a.nxshieldGetBatteryVoltage() / 1000;
-  if(batVolt < 7.50) {
-    clearDisplay();
-    lcd.print("LOW VOLTAGE!!!");
-    setLCDCursor(16);
-    lcd.print("voltage: ");
-    lcd.print(batVolt);
-  } else {
-    clearDisplay();
-    lcd.print("Press GO!");
-    setLCDCursor(16);
-    lcd.print("voltage: ");
-    lcd.print(batVolt); 
-  }
+  showVoltage();
   nxshield.waitForButtonPress(BTN_GO);  //This call allows for the button "go" to be pressed in order to start the robot.
 }
 
@@ -110,44 +96,36 @@ void setup() {
 /////////////////////////////////////////////////////////////////////////
 /////////////////////////////// MAIN LOOP ///////////////////////////////
 /////////////////////////////////////////////////////////////////////////
-This function is the 'main' part of the code that loops forever. This 
-will run functions that are defined below and will continue running 
+This function is the 'main' part of the code that loops forever. This
+will run functions that are defined below and will continue running
 until the arduino is stopped in some way.
 ====>RUN TOP LEVEL PROCEDURE HERE<====
 */
-void loop(){
- //These work:
- //printLocation();//Just displays distance to walls on display
- findCenter(2);//Runs fast loop, then slow loop to refit to threshold (the argument). May need to adjust to track exact center due to sensor offset
- //fullLeft();//Full speed to left wall, stop motor when hit.  
-  //fisherOn();
-  //delay(2000);//2 seconds
-  //fisherOff();
-  //delay(2000);//2 seconds 
-  
+void loop() {
+  //These work:
+  //printLocation();//Just displays distance to walls on display
+  //fullLeft();//Full speed to left wall, stop motor when hit.
 
+  //findCenter(2);//Runs fast loop, then slow loop to refit to threshold (the argument).
+  showVoltage();
+  fisherOn();
+  delay(fisherSpinup);
+  ballLift();
 
-//Stuff to work on:
-  //secureBall(intSpeed);
-  //delay(mainDelay);
+  //delay(100);//2 seconds //@JDS 2:56PM Changed this to tenth of second from 2 seconds.
   //ballLift();
-
- //ballLift();
- //delay(mainDelay);
- //dropLift(100);
- //stopMoving();
- //shootBall(intSpeed);
- //dropLift(intSpeed);
-
-
-
-  
-  //Junk?:
-  //delay(mainDelay);
-  //moveRight(intSpeed);
-  //delay(mainDelay);
-  //displayTest();
-  //getInfraData();
+  //fisherOff();
+  //Now that we just shot a ball, we want to move either left or right to retrieve a new ball to shoot.
+  fullLeft();
+  //delay(750);
+  findCenter(3);//Runs fast loop, then slow loop to refit to threshold (the argument).
+  showVoltage();
+  fisherOn();
+  delay(fisherSpinup);//2 seconds //@JDS 2:56PM Changed this to half a second from 2 seconds.
+  ballLift();
+  //fisherOff();
+  fullRight();
+  findCenter(3);
 }
 
 /////////////////////////////////////////////////////////////////////////
@@ -155,113 +133,131 @@ void loop(){
 /////////////////////////////////////////////////////////////////////////
 
 //*****************************GENERAL****************************\\
-void stopMoving(){
+void stopMoving() {
   nxshield.bank_a.motorRunSeconds(SH_Motor_Both, SH_Direction_Reverse, 0, 0, SH_Completion_Dont_Wait, SH_Next_Action_Brake);
   //nxshield.bank_b.motorRunSeconds(SH_Motor_Both, SH_Direction_Reverse, 0, 0, SH_Completion_Dont_Wait, SH_Next_Action_Brake);
 }
 
 //***********************RAIL MOTOR CONTROL***********************\\
 
-void railLeft(int motorSpeed){
-  nxshield.bank_a.motorRunUnlimited(SH_Motor_1, SH_Direction_Reverse, motorSpeed); 
-  //nxshield.ledSetRGB(0,0,8); 
+void moveLeft(int motorSpeed) {
+  nxshield.bank_a.motorRunUnlimited(SH_Motor_1, SH_Direction_Reverse, motorSpeed);
 }
 
-void railRight(int motorSpeed){
+void moveRight(int motorSpeed) {
   nxshield.bank_a.motorRunUnlimited(SH_Motor_1, SH_Direction_Forward, motorSpeed);
-  //nxshield.ledSetRGB(8,0,0);  
 }
 
-void fullLeft(){
-    int distToWall = sonarFrontLeft.getDist();
+void fullLeft() {
+  int distToWall = sonarFrontLeft.getDist();
+  long startTime = millis();
+  long deltaTime = 0;
+  moveRight(95);
 
-    while( distToWall > 7) {
-      delay(updateDelay);
-      printHelper("fullLeft:", distToWall, sonarFrontRight.getDist());  
-      railRight(100);
-      distToWall = sonarFrontLeft.getDist();
-    }    
-      printLocation();
-      stopMoving();
+  while (distToWall > 8 && deltaTime < 3000) {
+    delay(updateDelay);
+    printDistances("fullLeft:", distToWall, sonarFrontRight.getDist());
+    distToWall = sonarFrontLeft.getDist();
+    deltaTime = millis() - startTime;
+
+  }
+  printLocation();
+  stopMoving();
+}
+
+void fullRight() {
+  int distToWall = sonarFrontRight.getDist();
+  long startTime = millis();
+  long deltaTime = 0;
+
+  moveLeft(95);
+
+  while (distToWall > 8 && deltaTime < 3000) {
+    delay(updateDelay);
+    printDistances("fullRight:", sonarFrontLeft.getDist(), distToWall);
+    distToWall = sonarFrontRight.getDist();
+    deltaTime = millis() - startTime;
+
+  }
+  printLocation();
+  stopMoving();
 }
 
 
 void findCenter(int threshold) {
   int distLeft = sonarFrontLeft.getDist();
   int distRight = sonarFrontRight.getDist();
+  long startTime = millis();
+  long deltaTime = 0;
   
- while(abs(distLeft - distRight) > 35){//First loop: get CLOSISH (trying 30) to middle
+  while (abs(distLeft - distRight) > 35) { //First loop: get CLOSISH (trying 30) to middle
     delay(updateDelay);
     distLeft = sonarFrontLeft.getDist();
     distRight = sonarFrontRight.getDist();
-    printHelper("Finding Center:", distLeft, distRight);
-    if(distLeft > distRight) {
-      railRight(100); 
+    printDistances("Finding Center:", distLeft, distRight);
+    if (distLeft > distRight) {
+      if (distLeft == 255) { //the sonar is pointed at a ball and needs to be corrected
+        moveLeft(50);
+      } else {
+        moveRight(100);
+      }
     } else {
-      railLeft(100);
+      if (distRight == 255) {
+        moveRight(50);
+      } else {
+        moveLeft(100);
+      }
     }
+
   }
-  while(abs(distLeft - distRight) > threshold) {//Second loop: refine at slow speed
+  while (abs(distLeft - distRight) > threshold) { //Second loop: refine at slow speed
     delay(updateDelay);
     distLeft = sonarFrontLeft.getDist();
     distRight = sonarFrontRight.getDist();
-    printHelper("Refining Center:", distLeft, distRight);
-    if(distLeft > distRight) {
-      railRight(10); 
+    printDistances("Refining Center:", distLeft, distRight);
+    if (distLeft > distRight) {
+      moveRight(30);
     } else {
-      railLeft(10);
+      moveLeft(30);
     }
   }
-  
+
   printLocation();
   stopMoving();
 }
 
 
-
 //***********************PULLY MOTOR CONTROL***********************\\
-void pullyDown(int motorSpeed){
-  //nxshield.bank_a.motorRunUnlimited(SH_Motor_2, SH_Direction_Forward, motorSpeed); 
-  nxshield.bank_a.motorRunRotations(SH_Motor_2, SH_Direction_Forward, motorSpeed,
-                     4,
-                     SH_Completion_Wait_For ,
-                     SH_Next_Action_Float); 
+void pullyDown(int motorSpeed, int rotations) {
+  //nxshield.bank_a.motorRunUnlimited(SH_Motor_2, SH_Direction_Forward, motorSpeed);
+  nxshield.bank_a.motorRunRotations(SH_Motor_2, SH_Direction_Forward, motorSpeed, rotations, SH_Completion_Wait_For, SH_Next_Action_Float);
 }
 
-void pullyUp(int motorSpeed){
+void pullyUp(int motorSpeed, int rotations) {
   //nxshield.bank_a.motorRunUnlimited(SH_Motor_2, SH_Direction_Reverse, motorSpeed);
-  nxshield.bank_a.motorRunRotations(SH_Motor_2, SH_Direction_Reverse, motorSpeed,
-                     4,
-                     SH_Completion_Wait_For ,
-                     SH_Next_Action_Brake);   
+  nxshield.bank_a.motorRunRotations(SH_Motor_2, SH_Direction_Reverse, motorSpeed, rotations, SH_Completion_Wait_For, SH_Next_Action_Brake);
 }
 
-void shootBall(int motorSpeed){
-  nxshield.bank_a.motorRunRotations(SH_Motor_2, SH_Direction_Reverse, motorSpeed,
-                     1,
-                     SH_Completion_Dont_Wait ,
-                     SH_Next_Action_Float);   
+void shootBall(int motorSpeed) {
+  nxshield.bank_a.motorRunRotations(SH_Motor_2, SH_Direction_Reverse, motorSpeed, 1, SH_Completion_Dont_Wait, SH_Next_Action_Float);
 }
 
-void secureBall(int motorSpeed){
+void dropLift(int motorSpeed) {
   //nxshield.bank_a.motorRunUnlimited(SH_Motor_2, SH_Direction_Reverse, motorSpeed);
-  nxshield.bank_a.motorRunRotations(SH_Motor_2, SH_Direction_Reverse, motorSpeed,
-                     1,
-                     SH_Completion_Wait_For ,
-                     SH_Next_Action_Float);   
+  nxshield.bank_a.motorRunRotations(SH_Motor_2, SH_Direction_Forward, motorSpeed, 1, SH_Completion_Wait_For, SH_Next_Action_Float);
 }
 
-void dropLift(int motorSpeed){
-  //nxshield.bank_a.motorRunUnlimited(SH_Motor_2, SH_Direction_Reverse, motorSpeed);
-  nxshield.bank_a.motorRunRotations(SH_Motor_2, SH_Direction_Forward, motorSpeed,
-                     1, 
-                     SH_Completion_Wait_For ,
-                     SH_Next_Action_Float);   
+void ballLift() {
+  pullyUp(100, 2); //speed, numRotations
+  delay(mainDelay);
+  shootBall(100);
+  delay(250);
+  fisherOff();
+  //delay(mainDelay);
+  pullyDown(100, 2);
+  //delay(mainDelay);
+  //dropLift(100);
 }
-
-
-
-
 
 
 //**********************RELAY MOTOR******************\\
@@ -274,42 +270,40 @@ void fisherOff() {
 }
 
 
-
-
 /////////////////////////////////////////////////////////////////////////
 ///////////////////////////// LCD COMMANDS //////////////////////////////
 /////////////////////////////////////////////////////////////////////////
 void clearDisplay() {
   lcd.write(0xFE);
-  lcd.write(0x01); 
+  lcd.write(0x01);
 }
 
-void setLCDCursor(byte cursor_position){
- lcd.write(0xFE); // ready LCD for special command
- lcd.write(0x80); // ready LCD to recieve cursor potition
- lcd.write(cursor_position); // send cursor position 
+void setLCDCursor(byte cursor_position) {
+  lcd.write(0xFE); // ready LCD for special command
+  lcd.write(0x80); // ready LCD to recieve cursor potition
+  lcd.write(cursor_position); // send cursor position
 }
 
-void initializeDisplay(){
-  lcd.begin(9600); 
+void initializeDisplay() {
+  lcd.begin(9600);
   delay(500);
   clearDisplay();
-  lcd.print("Setup Starting. ");  
+  lcd.print("Setup Starting. ");
 }
 
-void displayTest(){
+void displayTest() {
   clearDisplay();
   delay(500);
   lcd.print("Test");
-  delay(500); 
+  delay(500);
 }
 
-void printLocation(){
+void printLocation() {
   int refreshDisplay = 0;
   int distLeft = sonarFrontRight.getDist();
   int distRight = sonarFrontLeft.getDist();
-  
-  if(refreshDisplay = updateDelay){
+
+  if (refreshDisplay = updateDelay) {
     clearDisplay();
     lcd.print("Location: ");
     setLCDCursor(16);
@@ -317,13 +311,13 @@ void printLocation(){
     lcd.print(distLeft);
     lcd.print(" L: ");
     lcd.print(distRight);
-    refreshDisplay = 0; 
+    refreshDisplay = 0;
   }
 }
 
-void printHelper(const char* title, int left, int right){
- int refreshDisplay = 0;
- if(refreshDisplay = updateDelay){
+void printDistances(const char* title, int left, int right) {
+  int refreshDisplay = 0;
+  if (refreshDisplay = updateDelay) {
     clearDisplay();
     lcd.print(title);
     setLCDCursor(16);
@@ -331,96 +325,23 @@ void printHelper(const char* title, int left, int right){
     lcd.print(left);
     lcd.print(" R: ");
     lcd.print(right);
-    refreshDisplay = 0; 
+    refreshDisplay = 0;
   }
 }
 
-
-/////////////////////////////////////////////////////////////////////////
-////////////////////////// PROCEDURE SANDBOX ////////////////////////////
-/////////////////////////////////////////////////////////////////////////
-/* Playing with touch sensor
-void testTouch(){  
-   while(!touchSensor.isPressed()){
-     test(50);
-     }
-     stopMoving();
-     delay(250);
-  Serial.println("button is pressed");
+void showVoltage() {
+  float batVolt = (float) nxshield.bank_a.nxshieldGetBatteryVoltage() / 1000;
+  if (batVolt < 7.50) {
+    clearDisplay();
+    lcd.print("LOW VOLTAGE!!!");
+    setLCDCursor(16);
+    lcd.print("voltage: ");
+    lcd.print(batVolt);
+  } else {
+    clearDisplay();
+    lcd.print("Ready to go!");
+    setLCDCursor(16);
+    lcd.print("voltage: ");
+    lcd.print(batVolt);
+  }
 }
-*/
-
-
-/* Playing with infared
-void getInfraData(){
-  char aa[80];
-  char str[256];
-  int  ab_us;
-  int  bb_us;
-  */
-
-/* Using Serial to read sonar input
-  ab_us = sonarFrontRight.getDist();
-  sprintf (str, "sonarR: Obstacle at: %d mm", ab_us );
-  Serial.println(str);
-  Serial.println( "-------------" );
-  delay (500);
-  
-  bb_us = sonarFrontLeft.getDist();
-  sprintf (str, "SonarL: Obstacle at: %d mm", bb_us );
-  Serial.println(str);
-  Serial.println( "-------------" );
-  delay (500);
-  */
-  
-//This funtion mixes motion with ball logic. This would be better made into separate methods: moveRight() then secureBall()  
-//  void moveRight(){
-//  int sonarData = sonarFrontLeft.getDist();
-//  while(sonarData < 100){
-//    nxshield.bank_a.motorRunUnlimited(SH_Motor_1, SH_Direction_Reverse, 100); 
-//    sonarData = sonarFrontLeft.getDist();
-//  }
-//  stopMoving();
-//  secureBall(100);
-//  
-//}
-  void testSlow(){
-     // Drive motor 1 forward and backward for a specific number of
-    // rotations
-    char            str[40];
-    long            rotations = 6;
-    delay(1000);
-    Serial.println("Bank A motors >>");
-    sprintf(str, "Motor 1 Forward %d Rotations", rotations);
-    Serial.println(str);
-    str[0] = '\0';
-    nxshield.bank_a.motorRunRotations(SH_Motor_1, 
-                     SH_Direction_Forward, 
-                     SH_Speed_Medium,
-                     rotations, 
-                     SH_Completion_Wait_For,
-                     SH_Next_Action_BrakeHold); 
-  
-}
-
-
-
-
-
-
-
-
-//HELPER FUNCTIONS\\
-void ballLift(){
-  secureBall(100);
-  pullyUp(intSpeed);
-  delay(mainDelay);
-  shootBall(100);
-  delay(mainDelay);
-  pullyDown(intSpeed);
-  delay(mainDelay);
-  dropLift(100); 
-}
-
-
-
