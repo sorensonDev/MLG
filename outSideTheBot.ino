@@ -40,6 +40,7 @@ not updated the code yet to give correct behavior
 better behavior during field testing. Changed number of rotations.
 4:25PM Josh tweaked number of rotations in pullyUp pully down. I believe that 3 rotations
 instead of 6 is sufficient considering that we replaced a smaller gear with the bigger wyrmgear.
+Tom changed fisherSpinup to 700
 */
 
 
@@ -50,8 +51,7 @@ instead of 6 is sufficient considering that we replaced a smaller gear with the 
 -INIT COMMANDS
 -MAIN LOOP
 -MOTOR COMMANDS
--LCD COMMANDS
--PROCEDURE SANDBOX
+-LCD & SENSOR COMMMANDS
 
 
 */
@@ -66,11 +66,11 @@ NXShield nxshield;
 SoftwareSerial lcd(2, 10);
 NXTUS       sonarFrontLeft;
 NXTUS       sonarFrontRight;
-NXTUS       infraSensor;
+NXTUS       sonarBall;
 int updateDelay = 50; // X ms sensor / screen update time
 int mainDelay = 40; // x ms sensor .. tweak value to allow arduino to think between function calls
 int fisherPricePin = 9; //the pin we're using to control the fisher-price motor.
-int fisherSpinup = 500; //amount of ms for fischer to spin up
+int fisherSpinup = 700; //amount of ms for fischer to spin up //5oo seemed like it may be not enough
 
 
 void setup() {
@@ -82,6 +82,7 @@ void setup() {
   //Initialize the i2c sensors.
   sonarFrontRight.init( &nxshield, SH_BBS2 );
   sonarFrontLeft.init( &nxshield, SH_BAS2 );
+  sonarBall.init( &nxshield, SH_BBS1 );
   //Initialize the fisher-price motor
   pinMode(fisherPricePin, OUTPUT);
   
@@ -102,11 +103,15 @@ until the arduino is stopped in some way.
 ====>RUN TOP LEVEL PROCEDURE HERE<====
 */
 void loop() {
+  
+////lcd.print(hasBall());
+
   //These work:
   //printLocation();//Just displays distance to walls on display
   //fullLeft();//Full speed to left wall, stop motor when hit.
 
   //findCenter(2);//Runs fast loop, then slow loop to refit to threshold (the argument).
+  
   showVoltage();
   fisherOn();
   delay(fisherSpinup);
@@ -116,7 +121,7 @@ void loop() {
   //ballLift();
   //fisherOff();
   //Now that we just shot a ball, we want to move either left or right to retrieve a new ball to shoot.
-  fullLeft();
+  fullLeft(3000);//argument is timeout
   //delay(750);
   findCenter(3);//Runs fast loop, then slow loop to refit to threshold (the argument).
   showVoltage();
@@ -124,7 +129,7 @@ void loop() {
   delay(fisherSpinup);//2 seconds //@JDS 2:56PM Changed this to half a second from 2 seconds.
   ballLift();
   //fisherOff();
-  fullRight();
+  fullRight(3000);//argument is timeout
   findCenter(3);
 }
 
@@ -148,36 +153,48 @@ void moveRight(int motorSpeed) {
   nxshield.bank_a.motorRunUnlimited(SH_Motor_1, SH_Direction_Forward, motorSpeed);
 }
 
-void fullLeft() {
+void fullLeft(int timeOut) {
+  bool hasBallNow = 0;
   int distToWall = sonarFrontLeft.getDist();
   long startTime = millis();
   long deltaTime = 0;
-  moveRight(95);
+  moveRight(100);//changed from 95% to 100%
 
-  while (distToWall > 8 && deltaTime < 3000) {
+  while (distToWall > 8 && deltaTime < timeOut && !hasBallNow) {
     delay(updateDelay);
     printDistances("fullLeft:", distToWall, sonarFrontRight.getDist());
     distToWall = sonarFrontLeft.getDist();
     deltaTime = millis() - startTime;
+    hasBallNow = hasBall();
 
+  }
+  //keep searching if ball not found
+  if(!hasBallNow){
+    fullRight(4000); 
   }
   printLocation();
   stopMoving();
 }
 
-void fullRight() {
+void fullRight(int timeOut) {
+  bool hasBallNow = 0;
   int distToWall = sonarFrontRight.getDist();
   long startTime = millis();
   long deltaTime = 0;
 
-  moveLeft(95);
+  moveLeft(100);//changed from 95% to 100%
 
-  while (distToWall > 8 && deltaTime < 3000) {
+  while (distToWall > 8 && deltaTime < timeOut && !hasBallNow ) {
     delay(updateDelay);
     printDistances("fullRight:", sonarFrontLeft.getDist(), distToWall);
     distToWall = sonarFrontRight.getDist();
     deltaTime = millis() - startTime;
+    hasBallNow = hasBall();
 
+  }
+  //keep searching if ball not found
+  if(!hasBallNow){
+    fullLeft(4000); 
   }
   printLocation();
   stopMoving();
@@ -260,6 +277,7 @@ void ballLift() {
 }
 
 
+
 //**********************RELAY MOTOR******************\\
 void fisherOn() {
   digitalWrite(fisherPricePin, HIGH);
@@ -271,7 +289,7 @@ void fisherOff() {
 
 
 /////////////////////////////////////////////////////////////////////////
-///////////////////////////// LCD COMMANDS //////////////////////////////
+///////////////////////////// LCD & SENSOR COMMMANDS //////////////////////////////
 /////////////////////////////////////////////////////////////////////////
 void clearDisplay() {
   lcd.write(0xFE);
@@ -344,4 +362,9 @@ void showVoltage() {
     lcd.print("voltage: ");
     lcd.print(batVolt);
   }
+}
+
+//************SENSOR***************\\
+bool hasBall(){
+ return sonarBall.getDist() > 250; 
 }
