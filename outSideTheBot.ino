@@ -147,10 +147,12 @@ void stopMoving() {
 
 void moveLeft(int motorSpeed) {
   nxshield.bank_a.motorRunUnlimited(SH_Motor_1, SH_Direction_Reverse, motorSpeed);
+  nxshield.bank_b.motorRunUnlimited(SH_Motor_1, SH_Direction_Reverse, motorSpeed);
 }
 
 void moveRight(int motorSpeed) {
   nxshield.bank_a.motorRunUnlimited(SH_Motor_1, SH_Direction_Forward, motorSpeed);
+  nxshield.bank_b.motorRunUnlimited(SH_Motor_1, SH_Direction_Forward, motorSpeed);
 }
 
 void fullLeft(int timeOut) {
