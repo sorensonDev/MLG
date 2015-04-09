@@ -70,7 +70,8 @@ NXTUS       sonarBall;
 int updateDelay = 50; // X ms sensor / screen update time
 int mainDelay = 40; // x ms sensor .. tweak value to allow arduino to think between function calls
 int fisherPricePin = 9; //the pin we're using to control the fisher-price motor.
-int fisherSpinup = 700; //amount of ms for fischer to spin up //5oo seemed like it may be not enough
+int fisherSpinup = 700; //amount of ms for fischer to spin up //5oo seemed like it may be not 
+int centerOffset = -11;  //used in second loop of findCenter POSITIVE IS RIGHT
 
 
 void setup() {
@@ -89,6 +90,7 @@ void setup() {
   initializeDisplay();
   // Check battery voltage on startup. Warn if low.
   showVoltage();
+  
   nxshield.waitForButtonPress(BTN_GO);  //This call allows for the button "go" to be pressed in order to start the robot.
 }
 
@@ -160,7 +162,7 @@ void fullLeft(int timeOut) {
   int distToWall = sonarFrontLeft.getDist();
   long startTime = millis();
   long deltaTime = 0;
-  moveRight(100);//changed from 95% to 100%
+  moveRight(100);
 
   while (distToWall > 8 && deltaTime < timeOut && !hasBallNow) {
     delay(updateDelay);
@@ -184,7 +186,7 @@ void fullRight(int timeOut) {
   long startTime = millis();
   long deltaTime = 0;
 
-  moveLeft(100);//changed from 95% to 100%
+  moveLeft(100);
 
   while (distToWall > 8 && deltaTime < timeOut && !hasBallNow ) {
     delay(updateDelay);
@@ -215,24 +217,18 @@ void findCenter(int threshold) {
     distRight = sonarFrontRight.getDist();
     printDistances("Finding Center:", distLeft, distRight);
     if (distLeft > distRight) {
-      if (distLeft == 255) { //the sonar is pointed at a ball and needs to be corrected
-        moveLeft(50);
-      } else {
         moveRight(100);
-      }
     } else {
-      if (distRight == 255) {
-        moveRight(50);
-      } else {
         moveLeft(100);
-      }
     }
 
   }
+  distLeft = sonarFrontLeft.getDist() - centerOffset;
+  distRight = sonarFrontRight.getDist() + centerOffset;
   while (abs(distLeft - distRight) > threshold) { //Second loop: refine at slow speed
     delay(updateDelay);
-    distLeft = sonarFrontLeft.getDist();
-    distRight = sonarFrontRight.getDist();
+    distLeft = sonarFrontLeft.getDist() - centerOffset;
+    distRight = sonarFrontRight.getDist() + centerOffset;
     printDistances("Refining Center:", distLeft, distRight);
     if (distLeft > distRight) {
       moveRight(30);
@@ -359,7 +355,10 @@ void showVoltage() {
     lcd.print(batVolt);
   } else {
     clearDisplay();
-    lcd.print("Ready to go!");
+    lcd.print("L: ");
+    lcd.print(sonarFrontLeft.getDist());
+    lcd.print(" R: ");
+    lcd.print(sonarFrontRight.getDist());
     setLCDCursor(16);
     lcd.print("voltage: ");
     lcd.print(batVolt);
