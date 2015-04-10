@@ -217,9 +217,17 @@ void findCenter(int threshold) {
     distRight = sonarFrontRight.getDist();
     printDistances("Finding Center:", distLeft, distRight);
     if (distLeft > distRight) {
+      if (distLeft == 255) { //the sonar is pointed at a ball and needs to be corrected
+        moveLeft(50);
+      } else {
         moveRight(100);
+      }
     } else {
+      if (distRight == 255) {
+        moveRight(50);
+      } else {
         moveLeft(100);
+      }
     }
 
   }
