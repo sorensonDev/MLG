@@ -71,7 +71,7 @@ int updateDelay = 50; // X ms sensor / screen update time
 int mainDelay = 40; // x ms sensor .. tweak value to allow arduino to think between function calls
 int fisherPricePin = 9; //the pin we're using to control the fisher-price motor.
 int fisherSpinup = 700; //amount of ms for fischer to spin up //5oo seemed like it may be not 
-int centerOffset = -11;  //used in second loop of findCenter POSITIVE IS RIGHT
+int centerOffset = -5;  //used in second loop of findCenter POSITIVE IS RIGHT
 
 
 void setup() {
