@@ -211,7 +211,7 @@ void findCenter(int threshold) {
   long startTime = millis();
   long deltaTime = 0;
   
-  while (abs(distLeft - distRight) > 40){ //First loop: get CLOSISH (trying 30) to middle
+  while (abs(distLeft - distRight) > 30){ //First loop: get CLOSISH (trying 30) to middle
     delay(updateDelay);
     distLeft = sonarFrontLeft.getDist();
     distRight = sonarFrontRight.getDist();
@@ -239,9 +239,9 @@ void findCenter(int threshold) {
     distRight = sonarFrontRight.getDist() + centerOffset;
     printDistances("Refining Center:", distLeft, distRight);
     if (distLeft > distRight) {
-      moveRight(25);
+      moveRight(30);
     } else {
-      moveLeft(25);
+      moveLeft(30);
     }
   }
   stopMoving();
@@ -374,5 +374,5 @@ void showVoltage() {
 
 //************SENSOR***************\\
 bool hasBall(){
- return sonarBall.getDist() > 250; 
+ return (sonarBall.getDist() > 250 || sonarBall.getDist() < 10); 
 }
